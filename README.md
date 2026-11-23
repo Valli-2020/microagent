@@ -25,7 +25,7 @@ Env: `MICRO_DIR` (program dir), `MICRO_HOME` (config dir), `BIN_DIR`, `MICRO_NAM
 
     micro
 
-Chat in the terminal; `/help` lists the commands. `/settings` opens a popup menu to change model, endpoint, keys, search server, skill folders, limits and bash behaviour without editing `config.json`; every change is saved at once.
+Chat in the terminal; `/help` lists the commands. `/settings` opens a popup menu to change model, endpoint, keys, search server, skill folders, limits, effort and bash behaviour without editing `config.json`; every change is saved at once.
 
 ## Config
 
@@ -40,6 +40,7 @@ See `examples/config.example.json` for a complete file with fake values.
 - `max_turns`: max tool-call rounds per message
 - `ctx`: context size in tokens
 - `auto`: run bash without asking
+- `effort`: `low`, `medium` (default) or `high`: how hard the model must check facts with tools before answering
 
 Keys can also come from `MICRO_KEY` and `CRW_KEY`.
 

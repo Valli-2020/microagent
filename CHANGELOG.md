@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0
+- New base personality: check facts with tools instead of assuming (fixed procedure and examples, so small local models follow it).
+- `effort` setting (`low`, `medium`, `high`) in `/settings` and `config.json`: how hard the model checks facts before answering.
+- Existing installs keep their `~/.config/microagent/personality.md`; copy the new one over it to get the new prompt.
+
 ## 1.3.0
 - No code changes. `micro -u` with the `[y/n]` question confirmed on a real install (y updates, n declines).
 - Adds this changelog.

@@ -25,7 +25,11 @@ DEFAULTS = {"active": "local",
             "models": {"local": {"url": "http://localhost:11434/v1", "model": "qwen3:8b", "key": ""}},
             "crw": {"url": "http://localhost:3002", "key": ""},
             "skills": [os.path.join(HOME_RAW, "skills")],
-            "max_turns": 12, "ctx": 8192, "auto": False}
+            "max_turns": 12, "ctx": 8192, "auto": False, "effort": "medium"}
+EFFORT = {"low": "Effort: low. Answer fast. Use at most one or two tool calls, only for facts the answer depends on.",
+          "medium": "Effort: medium. Check every fact the answer depends on with a tool before you answer. Do not assume.",
+          "high": "Effort: high. Check every fact with a tool and confirm important ones a second way (another command or "
+                  "another source). Before answering, re-read the tool results and drop any claim they do not support."}
 CAP = 4096
 STUB = "[old tool result removed to save context]"
 # shortcut: regex heuristic only, misses unusual secret formats; upgrade to an entropy check if facts leak keys
@@ -88,8 +92,8 @@ def load_skills(cfg):
     return skills.load([os.path.expanduser(d) for d in cfg["skills"]])
 
 
-def system(sk):
-    s = read("personality.md") + "\n\n## Facts\n" + (read("facts.md") or "(none yet)")
+def system(sk, effort="medium"):
+    s = read("personality.md") + "\n\n" + EFFORT.get(effort, EFFORT["medium"]) + "\n\n## Facts\n" + (read("facts.md") or "(none yet)")
     if sk:
         s += "\n\n## Skills (optional)\nNever load a skill on your own. If one clearly fits, offer it in one short sentence and wait for a yes; only then load it with the skill tool.\n" + "\n".join(f"- {n}: {v['description']}" for n, v in sk.items())
     return s
@@ -256,7 +260,7 @@ def run_tool(name, args, cfg, st):
 def run_turn(cfg, st, text):
     msgs = st["msgs"]
     st["skills"] = load_skills(cfg)  # re-read so a copied skill folder shows up at once
-    msgs[0] = {"role": "system", "content": system(st["skills"])}
+    msgs[0] = {"role": "system", "content": system(st["skills"], cfg["effort"])}
     msgs.append({"role": "user", "content": text})
     m = model(cfg)
     try:
@@ -351,6 +355,7 @@ def settings(cfg):
                 ("skills", f"skill folders  {', '.join(cfg['skills']) or 'none'}"),
                 ("turns", f"max tool turns {cfg['max_turns']}"),
                 ("ctx", f"context size   {cfg['ctx']}"),
+                ("effort", f"effort         {cfg['effort']}"),
                 ("auto", f"run bash       {'without asking' if cfg['auto'] else 'ask first'}"),
                 ("personality", "edit personality"), ("facts", "edit facts")]
         try:
@@ -368,6 +373,9 @@ def settings(cfg):
                 if v: cfg["skills"] = [x.strip() for x in v.split(",") if x.strip()]
             elif k == "turns": num("max tool turns", "max_turns", 1)
             elif k == "ctx": num("context size (tokens)", "ctx", 1024)
+            elif k == "effort":
+                j = tui.menu("effort", [f"{e:<7}{tui.dim(t.split('. ', 1)[1])}" for e, t in EFFORT.items()])
+                if j is not None: cfg["effort"] = list(EFFORT)[j]
             elif k == "auto": cfg["auto"] = not cfg["auto"]
             else: command(cfg, {"msgs": [{}], "web": False}, "/edit " + k); continue
         except (EOFError, KeyboardInterrupt):
@@ -472,6 +480,7 @@ def selftest():
     finally:
         shutil.rmtree(HOME)
         HOME = old
+    assert "Effort: high" in system({}, "high") and "Effort: medium" in system({}, "bogus")
     print("ma ok")
     for name, mod in (("tui", tui), ("web", web), ("skills", skills)):
         if mod:

@@ -8,5 +8,6 @@
   "skills": ["~/.config/microagent/skills"],
   "max_turns": 12,
   "ctx": 8192,
-  "auto": false
+  "auto": false,
+  "effort": "medium"
 }
