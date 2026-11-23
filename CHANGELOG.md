@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.1
+- Installer (zsh): the PATH line goes into `~/.zshenv` instead of the end of `~/.zshrc`, so it no longer lands after plugins that must be sourced last.
+- The PATH line uses `$HOME/...` instead of the expanded home path, so a `.zshrc`/`.zshenv` kept in a dotfiles repo stays machine-independent.
+- `--uninstall` also removes the line from `.zshenv` and from `.zshrc` (older installs).
+
 ## 1.4.0
 - New base personality: check facts with tools instead of assuming (fixed procedure and examples, so small local models follow it).
 - `effort` setting (`low`, `medium`, `high`) in `/settings` and `config.json`: how hard the model checks facts before answering.

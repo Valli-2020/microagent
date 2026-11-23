@@ -20,7 +20,8 @@ LINK=$BIN_DIR/$NAME
 if [ "${1:-}" = "--uninstall" ]; then
   if [ -L "$LINK" ] && [ "$(readlink "$LINK")" = "$REPO/ma.py" ]; then
     rm "$LINK"; echo "Removed $LINK (config in $CONF kept)"
-    for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.profile"; do
+    # .zshrc: written by installs before 1.4.1
+    for rc in "${ZDOTDIR:-$HOME}/.zshenv" "${ZDOTDIR:-$HOME}/.zshrc" "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.profile"; do
       if [ -f "$rc" ] && grep -q "$MARK" "$rc"; then { grep -v "$MARK" "$rc" || true; } > "$rc.micro.tmp"; cat "$rc.micro.tmp" > "$rc"; rm -f "$rc.micro.tmp"; fi
     done
     rm -f "$HOME/.config/fish/conf.d/micro.fish"
@@ -87,12 +88,13 @@ case ":$PATH:" in
   *) # put BIN_DIR on PATH for future shells (once, marked so --uninstall can remove it)
     case "$(basename "${SHELL:-sh}")" in
       fish) mkdir -p "$HOME/.config/fish/conf.d"; echo "fish_add_path $BIN_DIR" > "$HOME/.config/fish/conf.d/micro.fish"; rc=fish ;;
-      zsh) rc=${ZDOTDIR:-$HOME}/.zshrc ;;
+      zsh) rc=${ZDOTDIR:-$HOME}/.zshenv ;; # not .zshrc: its end is often reserved for plugins that must load last
       bash) rc=$HOME/.bashrc ;;
       *) rc=$HOME/.profile ;;
     esac
     if [ "$rc" = fish ] || ! grep -qs "$MARK" "$rc"; then
-      [ "$rc" = fish ] || printf 'export PATH="%s:$PATH"  %s\n' "$BIN_DIR" "$MARK" >> "$rc"
+      case "$BIN_DIR" in "$HOME"/*) p='$HOME'${BIN_DIR#"$HOME"} ;; *) p=$BIN_DIR ;; esac # keep rc files portable
+      [ "$rc" = fish ] || printf 'export PATH="%s:$PATH"  %s\n' "$p" "$MARK" >> "$rc"
       echo "Added $BIN_DIR to PATH ($rc). Open a new terminal, or run: exec \$SHELL"
     fi ;;
 esac
