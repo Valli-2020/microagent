@@ -432,7 +432,7 @@ def update():
         old = git("rev-parse", "--short", "HEAD")
         if old.returncode:
             print("micro: not a git checkout, cannot update"); return 1
-        r = git("pull", "--ff-only", "-q")
+        r = git("pull", "--ff-only", "--tags", "-q")
     except (OSError, subprocess.TimeoutExpired) as e:
         print(f"micro: update failed: {e}"); return 1
     if r.returncode:
@@ -445,10 +445,13 @@ def update():
 def main(argv):
     if argv[:1] == ["--selftest"]:
         return selftest()
+    if argv[:1] in (["-v"], ["--version"]):
+        r = subprocess.run(["git", "-C", DIR, "describe", "--tags", "--always"], capture_output=True, text=True)
+        print("micro " + (r.stdout.strip() or "unknown")); return 0
     if argv[:1] in (["-u"], ["--update"]):
         return update()
     if argv[:1] and argv[0].startswith("-") and argv[0] != "--ping":
-        print('usage: micro ["question"] | -u | --ping | --selftest')
+        print('usage: micro ["question"] | -u | -v | --ping | --selftest')
         return 2
     if not (tui and web and skills):
         sys.exit("micro: tui.py, web.py and skills.py must sit next to ma.py")
