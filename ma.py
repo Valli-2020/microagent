@@ -90,7 +90,7 @@ def load_skills(cfg):
 def system(sk):
     s = read("personality.md") + "\n\n## Facts\n" + (read("facts.md") or "(none yet)")
     if sk:
-        s += "\n\n## Skills (load one with the skill tool)\n" + "\n".join(f"- {n}: {v['description']}" for n, v in sk.items())
+        s += "\n\n## Skills (optional)\nNever load a skill on your own. If one clearly fits, offer it in one short sentence and wait for a yes; only then load it with the skill tool.\n" + "\n".join(f"- {n}: {v['description']}" for n, v in sk.items())
     return s
 
 
@@ -425,11 +425,30 @@ def selftest():
     return 0
 
 
+def update():
+    repo = DIR
+    git = lambda *a: subprocess.run(["git", "-C", repo, *a], capture_output=True, text=True, timeout=60)
+    try:
+        old = git("rev-parse", "--short", "HEAD")
+        if old.returncode:
+            print("micro: not a git checkout, cannot update"); return 1
+        r = git("pull", "--ff-only", "-q")
+    except (OSError, subprocess.TimeoutExpired) as e:
+        print(f"micro: update failed: {e}"); return 1
+    if r.returncode:
+        print("micro: update failed: " + (r.stderr.strip().splitlines() or ["git error"])[-1]); return 1
+    new = git("rev-parse", "--short", "HEAD").stdout.strip()
+    print("already up to date" if new == old.stdout.strip() else f"updated {old.stdout.strip()} -> {new}\n" + git("log", "--oneline", f"{old.stdout.strip()}..{new}").stdout.strip())
+    return 0
+
+
 def main(argv):
     if argv[:1] == ["--selftest"]:
         return selftest()
+    if argv[:1] in (["-u"], ["--update"]):
+        return update()
     if argv[:1] and argv[0].startswith("-") and argv[0] != "--ping":
-        print('usage: micro ["question"] | --ping | --selftest')
+        print('usage: micro ["question"] | -u | --ping | --selftest')
         return 2
     if not (tui and web and skills):
         sys.exit("micro: tui.py, web.py and skills.py must sit next to ma.py")
