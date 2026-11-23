@@ -1,8 +1,17 @@
 #!/bin/sh
-# micro installer. Idempotent. Env: MICRO_HOME, BIN_DIR, MICRO_NAME. Flag: --uninstall
+# micro installer. Idempotent. Env: MICRO_HOME, MICRO_DIR, BIN_DIR, MICRO_NAME. Flag: --uninstall
+# One-liner: curl -fsSL https://raw.githubusercontent.com/Valli-2020/microagent/main/install.sh | sh
 set -eu
 
+# Piped from curl (no checkout next to this script): fetch the program into a standard place, then run its installer.
+if [ ! -f "$(dirname "$0")/ma.py" ]; then
+  APP=${MICRO_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/microagent}
+  command -v git >/dev/null 2>&1 || { echo "git not found" >&2; exit 1; }
+  if [ -d "$APP/.git" ]; then git -C "$APP" pull -q --ff-only; else git clone -q https://github.com/Valli-2020/microagent.git "$APP"; fi
+  exec sh "$APP/install.sh" "$@"
+fi
 REPO=$(cd "$(dirname "$0")" && pwd)
+MARK="# added by micro"
 CONF=${MICRO_HOME:-$HOME/.config/microagent}
 BIN_DIR=${BIN_DIR:-$HOME/.local/bin}
 NAME=${MICRO_NAME:-micro}
@@ -11,6 +20,10 @@ LINK=$BIN_DIR/$NAME
 if [ "${1:-}" = "--uninstall" ]; then
   if [ -L "$LINK" ] && [ "$(readlink "$LINK")" = "$REPO/ma.py" ]; then
     rm "$LINK"; echo "Removed $LINK (config in $CONF kept)"
+    for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.profile"; do
+      if [ -f "$rc" ] && grep -q "$MARK" "$rc"; then { grep -v "$MARK" "$rc" || true; } > "$rc.micro.tmp"; cat "$rc.micro.tmp" > "$rc"; rm -f "$rc.micro.tmp"; fi
+    done
+    rm -f "$HOME/.config/fish/conf.d/micro.fish"
   else
     echo "Nothing to remove: $LINK is not a symlink into this repo"
   fi
@@ -69,5 +82,18 @@ if [ -n "$other" ] && [ "$other" != "$LINK" ]; then
 fi
 ln -sfn "$REPO/ma.py" "$LINK"
 echo "Linked $LINK -> $REPO/ma.py"
-case ":$PATH:" in *":$BIN_DIR:"*) ;; *) echo "warning: $BIN_DIR is not on PATH" >&2 ;; esac
+case ":$PATH:" in
+  *":$BIN_DIR:"*) ;;
+  *) # put BIN_DIR on PATH for future shells (once, marked so --uninstall can remove it)
+    case "$(basename "${SHELL:-sh}")" in
+      fish) mkdir -p "$HOME/.config/fish/conf.d"; echo "fish_add_path $BIN_DIR" > "$HOME/.config/fish/conf.d/micro.fish"; rc=fish ;;
+      zsh) rc=${ZDOTDIR:-$HOME}/.zshrc ;;
+      bash) rc=$HOME/.bashrc ;;
+      *) rc=$HOME/.profile ;;
+    esac
+    if [ "$rc" = fish ] || ! grep -qs "$MARK" "$rc"; then
+      [ "$rc" = fish ] || printf 'export PATH="%s:$PATH"  %s\n' "$BIN_DIR" "$MARK" >> "$rc"
+      echo "Added $BIN_DIR to PATH ($rc). Open a new terminal, or run: exec \$SHELL"
+    fi ;;
+esac
 echo "Done. Run: $NAME"

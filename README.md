@@ -13,13 +13,13 @@ It is a helper, not a coding agent.
 
 ## Install
 
-    ./install.sh
+    curl -fsSL https://raw.githubusercontent.com/Valli-2020/microagent/main/install.sh | sh
 
-Needs python3 >= 3.9. It creates `~/.config/microagent/` (config, personality, facts, skills), asks once for endpoint, model and crw URL (defaults are used without a TTY), and links `~/.local/bin/micro` to `ma.py`. Existing files are never overwritten.
+Needs python3 >= 3.9 and git. The program goes to `~/.local/share/microagent`, the `micro` command to `~/.local/bin` (added to your shell's PATH if missing), your settings to `~/.config/microagent/` (config, personality, facts, skills). It asks once for endpoint, model and crw URL (defaults are used without a TTY). Existing files are never overwritten, and running it again is safe.
 
-Env: `MICRO_HOME` (config dir), `BIN_DIR`, `MICRO_NAME`. If `micro` clashes with the text editor of the same name, run `MICRO_NAME=mi ./install.sh`.
-Update from GitHub with `micro -u` (fast-forward pull of the checkout).
-Remove the link with `./install.sh --uninstall` (config is kept).
+Update with `micro -u`. Remove the command with `micro`'s installer: `~/.local/share/microagent/install.sh --uninstall` (config is kept).
+
+Env: `MICRO_DIR` (program dir), `MICRO_HOME` (config dir), `BIN_DIR`, `MICRO_NAME`. If `micro` clashes with the text editor of the same name, use `MICRO_NAME=mi`.
 
 ## Usage
 
