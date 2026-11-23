@@ -1,0 +1,12 @@
+{
+  "active": "local",
+  "models": {
+    "local": {"url": "http://localhost:11434/v1", "model": "qwen3:8b", "key": ""},
+    "cloud": {"url": "https://api.example.com/v1", "model": "example-model", "key": "sk-example-not-a-real-key"}
+  },
+  "crw": {"url": "http://localhost:3002", "key": "fc-example-not-a-real-key"},
+  "skills": ["~/.config/microagent/skills"],
+  "max_turns": 12,
+  "ctx": 8192,
+  "auto": false
+}
