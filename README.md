@@ -17,7 +17,7 @@ It is a helper, not a coding agent.
 
 Needs python3 >= 3.9 and git. The program goes to `~/.local/share/microagent`, the `micro` command to `~/.local/bin` (added to your shell's PATH if missing), your settings to `~/.config/microagent/` (config, personality, facts, skills). It asks once for endpoint, model and crw URL (defaults are used without a TTY). Existing files are never overwritten, and running it again is safe.
 
-Update with `micro -u`. Remove the command with `micro`'s installer: `~/.local/share/microagent/install.sh --uninstall` (config is kept).
+Update with `micro -u`: it shows what changed and asks `apply? [y/n]` (`micro -u -y` skips the question). `micro -v` prints the version. Remove the command with `micro`'s installer: `~/.local/share/microagent/install.sh --uninstall` (config is kept).
 
 Env: `MICRO_DIR` (program dir), `MICRO_HOME` (config dir), `BIN_DIR`, `MICRO_NAME`. If `micro` clashes with the text editor of the same name, use `MICRO_NAME=mi`.
 
@@ -25,7 +25,7 @@ Env: `MICRO_DIR` (program dir), `MICRO_HOME` (config dir), `BIN_DIR`, `MICRO_NAM
 
     micro
 
-Chat in the terminal; `/help` lists the commands.
+Chat in the terminal; `/help` lists the commands. `/settings` opens a popup menu to change model, endpoint, keys, search server, skill folders, limits and bash behaviour without editing `config.json`; every change is saved at once.
 
 ## Config
 
