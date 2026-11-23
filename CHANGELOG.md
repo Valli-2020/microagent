@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0
+- No code changes. `micro -u` with the `[y/n]` question confirmed on a real install (y updates, n declines).
+- Adds this changelog.
+
 ## 1.2.1 (update test)
 - Test release for the `micro -u` preview and `[y/n]` question.
 
