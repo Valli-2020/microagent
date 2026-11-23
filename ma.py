@@ -32,9 +32,10 @@ STUB = "[old tool result removed to save context]"
 SECRET = re.compile(r"sk-[\w-]{16,}|gh[pousr]_\w{20,}|AKIA[0-9A-Z]{16}|xox[abpr]-\w+|-----BEGIN|eyJ[\w-]{10,}\.[\w-]+|"
                     r"\b(password|passwd|passphrase|token|secret|api[_ -]?key)\s*[:=]\s*\S+|\bbearer\s+\S{10,}|"
                     r"[A-Za-z0-9+_-]{32,}", re.I)  # no "/" so long paths pass
-HELP = """/model                   switch model or add an endpoint
+HELP = """/settings                change model, endpoint, keys, search, limits (saved at once)
+/model                   switch model or add an endpoint
 /skills                  list skills
-/auto                    toggle running bash without asking (after web results it still asks)
+/auto                    toggle running bash without asking for this session (after web results it still asks)
 /edit personality|facts  open in $EDITOR
 /clear                   start a new conversation
 /help                    this list
@@ -321,11 +322,66 @@ def pick_model(cfg):
     tui.info(f"using {cfg['active']} · {cfg['models'][cfg['active']]['model']}")
 
 
+def settings(cfg):
+    """Popup menu for everything in config.json; each change is saved at once."""
+    def num(label, key, lo):
+        v = tui.ask(f"{label} [{cfg[key]}]: ").strip()
+        if v.isdigit() and int(v) >= lo:
+            cfg[key] = int(v)
+        elif v:
+            tui.error(f"need a whole number >= {lo}")
+    def url(label, d, key):
+        v = tui.ask(f"{label} [{d.get(key, '')}]: ").strip().rstrip("/")
+        if v.startswith(("http://", "https://")):
+            d[key] = v
+        elif v:
+            tui.error("needs to start with http:// or https://")
+    def secret(label, d):
+        v = getpass.getpass(f"{label} (enter keeps, '-' clears): ").strip()  # no echo, stays out of history
+        if v:
+            d["key"] = "" if v == "-" else v
+    while True:
+        name = cfg["active"] if cfg["active"] in cfg["models"] else next(iter(cfg["models"]))
+        m, c = cfg["models"][name], cfg["crw"]
+        rows = [("model", f"model          {name} · {m['model']}"),
+                ("url", f"endpoint       {m['url']}"),
+                ("key", f"endpoint key   {'set' if m.get('key') else 'none'}"),
+                ("crw", f"search url     {c['url']}"),
+                ("crwkey", f"search key     {'set' if c.get('key') else 'none'}"),
+                ("skills", f"skill folders  {', '.join(cfg['skills']) or 'none'}"),
+                ("turns", f"max tool turns {cfg['max_turns']}"),
+                ("ctx", f"context size   {cfg['ctx']}"),
+                ("auto", f"run bash       {'without asking' if cfg['auto'] else 'ask first'}"),
+                ("personality", "edit personality"), ("facts", "edit facts")]
+        try:
+            i = tui.menu("settings", [r[1] for r in rows])
+            if i is None:
+                return
+            k = rows[i][0]
+            if k == "model": pick_model(cfg); continue
+            elif k == "url": url("endpoint url", m, "url")
+            elif k == "key": secret("endpoint key", m)
+            elif k == "crw": url("search url", c, "url")
+            elif k == "crwkey": secret("search key", c)
+            elif k == "skills":
+                v = tui.ask("skill folders, comma separated: ").strip()
+                if v: cfg["skills"] = [x.strip() for x in v.split(",") if x.strip()]
+            elif k == "turns": num("max tool turns", "max_turns", 1)
+            elif k == "ctx": num("context size (tokens)", "ctx", 1024)
+            elif k == "auto": cfg["auto"] = not cfg["auto"]
+            else: command(cfg, {"msgs": [{}], "web": False}, "/edit " + k); continue
+        except (EOFError, KeyboardInterrupt):
+            print(); return
+        save_cfg(cfg)
+
+
 def command(cfg, st, line):
     cmd, _, arg = line.partition(" ")
     arg = arg.strip()
     if cmd == "/model":
         pick_model(cfg)
+    elif cmd in ("/settings", "/config"):
+        settings(cfg)
     elif cmd == "/skills":
         sk = load_skills(cfg)
         tui.info("\n".join(f"{n}  {tui.dim(v['description'])}" for n, v in sk.items()) or "no skills found")
@@ -425,20 +481,31 @@ def selftest():
     return 0
 
 
-def update():
-    repo = DIR
-    git = lambda *a: subprocess.run(["git", "-C", repo, *a], capture_output=True, text=True, timeout=60)
+def update(yes=False):
+    git = lambda *a: subprocess.run(["git", "-C", DIR, *a], capture_output=True, text=True, timeout=60)
     try:
-        old = git("rev-parse", "--short", "HEAD")
-        if old.returncode:
-            print("micro: not a git checkout, cannot update"); return 1
-        r = git("pull", "--ff-only", "--tags", "-q")
-    except (OSError, subprocess.TimeoutExpired) as e:
-        print(f"micro: update failed: {e}"); return 1
+        old = git("rev-parse", "--short", "HEAD").stdout.strip()
+        f = git("fetch", "--tags", "-q") if old else None
+        if not old or f.returncode:
+            print("micro: cannot check for updates: " + ((f.stderr.strip().splitlines() or ["not a git checkout"])[-1] if f else "not a git checkout")); return 1
+        new = git("rev-parse", "--short", "@{u}").stdout.strip()
+        if not new:
+            print("micro: no upstream branch to update from"); return 1
+        if new == old or git("merge-base", "--is-ancestor", "@{u}", "HEAD").returncode == 0:
+            print(f"already up to date ({git('describe', '--tags', '--always').stdout.strip()})"); return 0
+        print(f"update available: {old} -> {new}\n" + git("log", "--oneline", "HEAD..@{u}").stdout.rstrip()
+              + "\n\n" + git("diff", "--stat", "HEAD", "@{u}").stdout.rstrip())
+        if not yes:
+            if not sys.stdin.isatty():
+                print("not applied (no terminal). Run `micro -u -y` to apply."); return 0
+            if input("apply? [y/n] ").strip().lower() != "y":
+                print("not applied"); return 0
+        r = git("merge", "--ff-only", "-q", "@{u}")
+    except (OSError, subprocess.TimeoutExpired, EOFError, KeyboardInterrupt) as e:
+        print(f"micro: update failed: {e or 'cancelled'}"); return 1
     if r.returncode:
         print("micro: update failed: " + (r.stderr.strip().splitlines() or ["git error"])[-1]); return 1
-    new = git("rev-parse", "--short", "HEAD").stdout.strip()
-    print("already up to date" if new == old.stdout.strip() else f"updated {old.stdout.strip()} -> {new}\n" + git("log", "--oneline", f"{old.stdout.strip()}..{new}").stdout.strip())
+    print(f"updated {old} -> {new} ({git('describe', '--tags', '--always').stdout.strip()})")
     return 0
 
 
@@ -449,9 +516,9 @@ def main(argv):
         r = subprocess.run(["git", "-C", DIR, "describe", "--tags", "--always"], capture_output=True, text=True)
         print("micro " + (r.stdout.strip() or "unknown")); return 0
     if argv[:1] in (["-u"], ["--update"]):
-        return update()
+        return update(argv[1:] == ["-y"])
     if argv[:1] and argv[0].startswith("-") and argv[0] != "--ping":
-        print('usage: micro ["question"] | -u | -v | --ping | --selftest')
+        print('usage: micro ["question"] | -u [-y] | -v | --ping | --selftest')
         return 2
     if not (tui and web and skills):
         sys.exit("micro: tui.py, web.py and skills.py must sit next to ma.py")
